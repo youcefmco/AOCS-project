@@ -1,0 +1,458 @@
+/******************************************************************************
+ * Project        OBC 386 Flight Code
+ * Subsystem      AOCS Task - mission defiintions file
+ * Author         Allon Jameson
+ * Date           13/03/2009
+ ******************************************************************************/
+/*!****************************************************************************
+ * \file aocs_mission.h
+ *   <detailed description of the module functionality>
+ *
+ ******************************************************************************/
+/******************************************************************************
+ * Copyright (c) 2009 Surrey Satellite Technology, Ltd.
+ * All rights reserved.
+ *
+ ******************************************************************************
+ * Documentation : N/A
+ *
+ ******************************************************************************
+ * SSTL DISCLAIMER   :
+ *
+ * This C code is furnished under a license and may be used and
+ * copied only in accordance with the terms of such license and
+ * with the inclusion of the above copyright notice.  This
+ * C or any other copies thereof may not be provided or
+ * otherwise made available to any other person. No title to or
+ * ownership of the software is hereby transferred.
+ *
+ ******************************************************************************
+ * CVS VERSION CONTROL (do not edit)
+ *
+ * Last Update : $Date: 2013/04/11 13:42:57 $
+ * CVS Source  : $Source: /OBDH/OBC750_VxWorks/OBC750-AOCS-Shell-RTP/include/.#Adcs_mission.h.1.9,v $
+ * Revision    : $Revision: 1.1 $
+ *
+ * History:
+ *
+ * $Log: .#Adcs_mission.h.1.9,v $
+ * Revision 1.1  2013/04/11 13:42:57  ytrichakis
+ * Initial Commit
+ *
+ * Revision 1.9  2012/05/02 13:33:15  SFingerloos
+ * added TC/TLM for sensor/actuator enable flags, default set is stored in drive file
+ *
+ * Revision 1.8  2012/04/20 11:26:27  SFingerloos
+ * added default value for max mtq command in unsol mode, added number of safe modes (0 for TDS)
+ *
+ * Revision 1.7  2012/04/16 13:40:02  SFingerloos
+ * removed commented out section for update rate as it gave lots of warnings
+ *
+ * Revision 1.6  2012/04/16 13:33:32  SFingerloos
+ * made CPM low rate mode
+ *
+ * Revision 1.5  2012/03/29 14:22:24  SFingerloos
+ * removed all NUM definitions as commented out anyway, added a map for SAS_AIM_mapping, renamed SAMPLE_TIME to AIM_SAMPLE_TIME
+ *
+ * Revision 1.4  2012/03/29 10:49:34  ajameson
+ * updated AIM configuration functions: tcs to set period, sample time and framesize
+ *
+ * Revision 1.3  2012/03/27 10:07:13  SFingerloos
+ * commented unit definitions NUM_WHL to use _FC_NUM instead, added _FC_NUM_MWHL to allow different types of wheel
+ *
+ * Revision 1.2  2012/03/16 17:08:48  ajameson
+ * merged changes from branch into main head
+ *
+ * Revision 1.1.2.2  2012/02/28 16:59:07  ajameson
+ * removed unused hw config def
+ *
+ * Revision 1.1.2.1  2012/02/28 16:34:49  ajameson
+ * added mtm definition
+ *
+ * Revision 1.1  2012/02/24 12:47:15  ajameson
+ * initial check in of flight code
+ *
+ * Revision 1.1  2012/02/09 15:03:55  ajameson
+ * Initial check in of TDS ADCS shel incoperating new AOCS architecture
+ *
+ *
+ ******************************************************************************/
+
+
+#ifndef _AOCS_MIS_H_
+#define _AOCS_MIS_H_
+
+/* ADCS */
+
+#define USE_387
+#define DC_ADCS_FLIGHT_CODE
+
+
+#define MODE_SBM (0)
+#define MODE_DTM (1)
+#define MODE_YTM (2)
+#define MODE_CPM (3)
+
+
+#define MAX_MODE_VAL MODE_CPM
+#define NUM_MODES 4 // actual operational modes
+#define NUM_SAFE_MODES 1 //YT TODO it was 0 safe mode versions of the operational modes i.e. safe standby, safe detumble etc - these will use same code
+// as operational modes in algs but might use redundant set of units
+/*safe mode IDs for config files are offset by ACON_SAFE_SKED_OFFSET, numbering the same as Ops mode - i.e. 
+configSKED ID = ACON_SAFE_SKED_OFFSET is safe mode version of OpsMode = 0*/
+
+#define AOCS_UNSOL_MODES \
+{\
+/* SBM   DTM   YTM   CPM   */\
+   0,    0,   0,    0\
+}
+
+
+#define  ARO_DEFAULT_MAX_VALS \
+{\
+/* SBM   DTM   YTM   CPM  */\
+   0,   300, 300, 300,  \
+}
+
+#define  ARO_HOLDOFF_INTERVALS \
+{\
+/* SBM   DTM   YTM   CPM*/\
+   300, 300, 300,  300,\
+}
+
+#define AOCS_ALG_DELAY \
+{\
+/* SBM   DTM   YTM   CPM */\
+   0,    5,    6,  10,\
+}
+
+
+#define AOCS_MODE_TRANSISTION_TABLE \
+{\
+/* old/new:  SBM  DTM YTM  CPM  */\
+/* SBM  */   {  1,    1,    1,    0 },  \
+/* DTM  */   {  1,    1,    1,    0 },  \
+/* YTM  */   {  1,    1,    1,    1 },  \
+/* CPM  */   {  1,    0,    1,    1, },  \
+}
+
+
+#define AOCS_MODE_TRANS_INTERVAL \
+{\
+/*  SBM   DTM  YTM   CPM */\
+    0,    0,   0,    0,\
+}
+
+
+#define AOCS_UPDATE_RATE {\
+/* SBM   DTM   YTM   CPM */\
+   0,    0,   0,    0,\
+}
+
+#define AOCS_HIGH_RATE (1)
+#define AOCS_LOW_RATE (4)
+
+#define AOCS_EWOD_HIGH_RATE (5)
+#define AOCS_EWOD_LOW_RATE (20)
+
+
+
+#define AOCS_RATE {\
+/* SBM   DTM   YTM   CPM */\
+   AOCS_LOW_RATE,    AOCS_LOW_RATE,  AOCS_LOW_RATE,   AOCS_LOW_RATE,\
+}
+
+#define AOCS_EWOD_RATE {\
+   /* SBM   DTM   YTM   CPM */\
+      AOCS_EWOD_LOW_RATE,    AOCS_EWOD_LOW_RATE,  AOCS_EWOD_LOW_RATE,   AOCS_EWOD_HIGH_RATE,\
+   }
+
+//AJ - to be removed
+#define AOCS_EWOD_MULT {\
+   /* SBM   DTM   YTM   CPM */\
+      1,    1,  1,   1,\
+   }
+
+
+typedef enum
+{
+   MODE_TYPE_SAFE     = 0,
+   MODE_TYPE_LEOP     = 1,
+   MODE_TYPE_NOM      = 2,
+   MODE_TYPE_CHECKOUT = 3,
+} teMODE_TYPES;
+
+
+
+#define AOCS_MODE_TYPE {\
+{\
+/* SBM */  MODE_TYPE_SAFE,\
+/* DTM */  MODE_TYPE_LEOP,\
+/* YTM */  MODE_TYPE_LEOP,\
+/* CPM */  MODE_TYPE_LEOP,\
+}
+
+
+/*
+ * A and B Tlm Thresholds
+ */
+#define SS_LOWER                    550
+#define SS_UPPER                    4200
+
+
+/*
+ * Torquer and Wheel Polarities, must be 1 or -1
+ */
+
+#define WHEEL_OFFSET                1000000
+
+
+#define TASKNAME "AOCS"
+
+
+
+#define AOCS_DRIVE_FILE_VERSION 1
+#define AOCS_DRIVE_FILE_ID "AOCS"
+#define AOCS_DRIVE_SAT_ID "TD"
+#define AOCS_DRIVE_FILE_ID_SIZE 4
+#define AOCS_DRIVE_SAT_ID_SIZE 2
+
+
+#define AOCS_DEFAULT_CYCLE_TIME (4)
+
+#define _ALG_STUB_
+
+
+
+#define AOCS_STRIF_INIT {SCAM0 , SCAM2} 
+
+
+//use 10SP microsat wheels
+#define _MWHL_10SP_
+/*#pragma message("Using 10SP microsat wheels\n")*/
+
+
+/************** Sensor  defs ****************************/
+
+
+typedef enum
+{
+   WHEEL0 = 0,
+   WHEEL1 = 1,
+   WHEEL2 = 2,
+   WHEEL3 = 3
+} teWHEEL;
+
+typedef enum
+{
+   SCAM0 = 0,
+   SCAM1 = 1,
+   SCAM2 = 2,
+} teSTARCAM;
+
+
+typedef enum
+{
+   QVAL0 = 0,
+   QVAL1 = 1,
+   QVAL2 = 2,
+   QVAL3 = 3,
+} teQVAL;
+
+typedef enum
+{
+   MEAS0 = 0,
+   MEAS1 = 1,
+   MEAS2 = 2,
+   MEAS3 = 3,
+} teMEASUREMENT;
+
+
+typedef enum
+{
+   AZ_DATA = 0,
+   EL_DATA = 1,
+} teSAS_TYPE;
+
+
+typedef enum
+{
+   CHAN_A = 0,
+   CHAN_B = 1,
+} teSAS_CHANS;
+
+typedef enum
+{
+   AIM0 = 0,
+   AIM1 = 1,
+} teAIM_NO;
+
+typedef enum
+{
+   MTM0 = 0,
+   MTM1 = 1,
+} teMTM_NO;
+
+
+typedef enum
+{
+   GPS_RX0 = 0,
+   GPS_RX1 = 1,
+} teGPS_RX_NO;
+
+//#define NUM_GPS (2)
+
+typedef enum
+{
+   DPU0 = 0,
+   DPU1 = 1,
+} teDPU_NO;
+
+
+typedef enum
+{
+   SAS0 = 0,
+   SAS1 = 1,
+   SAS2 = 2,
+   SAS3 = 3,
+} teSAS_NO;
+
+typedef enum
+{
+   STRIF_A  = (0),
+   STRIF_B  = (1),
+} teSTR_IF;
+
+
+typedef enum
+{
+   HMGR_SNS_MTM    = 0,
+   HMGR_SNS_MWHL = 1,
+   HMGR_SNS_SAS     = 2,
+   HMGR_SNS_GYR     = 3,
+   HMGR_SNS_SCAM  = 4,
+   HMGR_SNS_GPS    = 5,
+} teHMGR_HW_SENSORS;
+
+typedef enum
+{
+   HMGR_ACT_MTQ    = 0,
+   HMGR_ACT_MWHL = 1,
+} teHMGR_HW_ACTUATORS;
+
+#define NUM_HW_SENSOR_TYPES (6)
+#define NUM_HW_ACTUATOR_TYPES (2)
+
+#define _FC_NUM_GYR (1)
+#define _FC_NUM_DPU (2)
+#define _FC_NUM_MTM (2)   //  no. of magnetometers
+#define _FC_NUM_SAS (3)   //  no. of sun sensors
+#define _FC_NUM_AIM (2)
+#define _FC_NUM_AIMB (2)
+#define _FC_NUM_SCAM (1)   //  no. of star cameras
+#define _FC_NUM_STRIF (2)  // no of star tracker interfaces
+
+#define _FC_NUM_SC_TYPES (3)
+#define _FC_NUM_SCAM_MEAS (4) // no. of measurements by a star camera
+#define _FC_NUM_WHL    (4)   //  total no. of wheels
+#define _FC_NUM_MWHL   (4)   // number of 1st wheel type - 10SP
+#define _FC_NUM_SWHL   (0)   // number of 2nd wheel type - 200SP
+#define _FC_NUM_100WHL (0)   // number of 3rd wheel type - 100SP
+
+
+#define _FC_NUM_Q_VALS 4
+#define _FC_NUM_SAS_CHANS 2
+#define _FC_NUM_SAS_AXIS 2
+
+/*****************************************************
+* module specifics that can change mission by mission
+******************************************************/
+
+// mapping of SAS to AIM [aimNo][aimSasNo]
+// use _FC_NUM_SAS to make an invalid entry
+#define AIM_SAS_MAP \
+{\
+   {SAS0,\
+   SAS1},\
+\
+   {SAS2,\
+   _FC_NUM_SAS},\
+}
+/* default max length of mtr on time in unsol mode in [20ms] units
+125 = 2500ms ==> corresponds to 4 sec cycle*/
+#define AIM_DEFAULT_MAX_UNSOL_CMD 125
+
+#define MTQ_SCALE_FACTOR 100.0
+#define MAX_MAG_MOMENT 5.0
+#define MTQ_UNIT_CONV 50.0
+
+#define STRIF_BIT_MASK (0x07)
+#define STRIF_INVALID (0xFF) 
+
+
+#define PPS_0 (0)
+#define PPS_1 (1)
+#define PPS_INTERNAL  (2)
+
+/************** Hardware Interface defs ****************************/
+
+
+
+#define HMGR_CMD_TIMEOUT (250L)
+#define HMGR_CONFIG_TIMEOUT (1000L)
+
+// timeout needs to be such that there is sufficient time between HMGR_Sample sending requests and 
+// HMGR_CheckSample for all requests to have either been responded to or have timed out
+// therefore when HMGR_CheckSample calls the can_tlm_check the number of channels received should
+// match the number of channels requested (with the channels timed-out being marked as such)
+#define HMGR_TLM_TIMEOUT (850L)
+
+
+#define AIM_ACTUATE_TIME 500
+#define AIM_SAMPLE_TIME  800
+
+#define AIM_HOT_REDUNDANT
+//#define AIM_COLD_REDUNDANT
+
+
+#ifdef AIM_ACTUATE_TIME 
+/*#pragma message("Actuate time defined")*/
+#else
+#pragma message("Actuate time NOT defined")
+#endif
+
+#ifdef _INC_HINT_TLM_TABLE_
+//AJ DO I NEED THIS TABLE????
+ #define HINT_TLM_TABLE {\
+   /* MTM tlm */\
+   EWOD_TYPE_MAG, CANADDR_AIM0, AIMTLM_MTM, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_FALSE, GDEF_TRUE,\
+   EWOD_TYPE_MAG, CANADDR_AIM1, AIMTLM_MTM, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_FALSE, GDEF_FALSE,\
+   EWOD_TYPE_MAG, CANADDR_ADCS, TLM_MTQX, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_TRUE,\
+   EWOD_TYPE_MAG, CANADDR_ADCS, TLM_MTQY, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_TRUE,\
+   EWOD_TYPE_MAG, CANADDR_ADCS, TLM_MTQZ, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_TRUE,\
+\
+\
+   /*Wheel tlm */\
+   EWOD_TYPE_WHL, CANADDR_WHEEL0, MWHLTLM_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_FALSE, GDEF_FALSE,\
+   EWOD_TYPE_WHL, CANADDR_ADCS,   TLM_WHL0_CMD_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_FALSE,\
+\
+   EWOD_TYPE_WHL, CANADDR_WHEEL1, MWHLTLM_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_FALSE, GDEF_FALSE,\
+   EWOD_TYPE_WHL, CANADDR_ADCS,   TLM_WHL1_CMD_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_FALSE,\
+\
+   EWOD_TYPE_WHL, CANADDR_WHEEL2, MWHLTLM_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_FALSE, GDEF_FALSE,\
+   EWOD_TYPE_WHL, CANADDR_ADCS,   TLM_WHL2_CMD_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_FALSE,\
+\
+   EWOD_TYPE_WHL, CANADDR_WHEEL3, MWHLTLM_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_FALSE, GDEF_FALSE,\
+   EWOD_TYPE_WHL, CANADDR_ADCS,   TLM_WHL3_CMD_SPEED, 4, FORMAT_UNDEF, HINT_INVALID_TLM, GDEF_TRUE, GDEF_FALSE,\
+\
+}
+#endif
+
+
+
+
+#define GetAimNode(X)    ( (X == AIM0)     ? CANADDR_AIM0    : CANADDR_AIM1)
+
+
+
+#endif /* _AOCS_MIS_H_*/
