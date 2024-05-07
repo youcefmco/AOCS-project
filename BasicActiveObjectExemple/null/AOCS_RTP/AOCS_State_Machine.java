@@ -4,8 +4,6 @@
 
 package AOCS_RTP;
 
-import java.util.Map;
-
 // Manual imports
 import AOCS_RTP.AOCS_Process_Shell.GDEF_STATUS;
 import java.util.HashMap;
@@ -185,18 +183,6 @@ class AOCS_State_Machine {
 	 */
 	private StateThread statethread;
 	/**
-	 * 
-	 */
-	public static Map<AOCS_MODES, Integer> modeIndexMap = new HashMap<>() {
-		{
-			put(AOCS_MODES.SBM, 0);
-			put(AOCS_MODES.DTM, 1);
-			put(AOCS_MODES.YTM, 2);
-			put(AOCS_MODES.CPM, 3);
-			put(AOCS_MODES.NOM, 4);
-		}
-	};
-	/**
 	 * return the AOCS period
 	 */
 	public int AOCS_maxCycle;
@@ -272,6 +258,14 @@ class AOCS_State_Machine {
 	 * Default number of pps cycle before all pps_received event
 	 */
 	public static int AOCS_DEFAULT_CYCLE_TIME = 4;
+	/**
+	 * to synch time every 1/4 sec
+	 */
+	public static int No_all_PPS_received;
+	/**
+	 * When we are here for the "SEND_SYNC_TIME"th, ie 15*4 = 60sec
+	 */
+	public static int SEND_SYNC_TIME = 15;
 
 	/**
 	 * check if the mode transition is valid then start the updateMode transitions routine
@@ -344,7 +338,7 @@ class AOCS_State_Machine {
 				AOCS_transState = AOCS_TRANS_STATE.AMOH_TRANS_SHELL;
 			} else {
 				/* kick off the hardware config sked for the mode */
-				if (GDEF_STATUS.GDEF_SUCCESS != aocs_Configuration.ACON_StartSked(modeIndexMap.get(AOCS_reqMode))) {
+				if (GDEF_STATUS.GDEF_SUCCESS != aocs_Configuration.ACON_StartSked(AOCS_reqMode.ordinal())) {
 					// failure
 					/* abort and go Back */
 					AOCS_transState = AOCS_TRANS_STATE.AMOH_TRANS_IDLE;
@@ -435,7 +429,22 @@ class AOCS_State_Machine {
 	 * @return Success / Failure Indication
 	 */
 	public static int run_AOCS(AOCS_shell_configuration config) {
-		//all good
+		/*
+		 * When we are here for the "SEND_SYNC_TIME"th, ie 15*4 = 60sec
+		 * send sync message to Node 0.
+		 */
+		No_all_PPS_received++;
+		if (No_all_PPS_received >= SEND_SYNC_TIME) {
+			/*
+			  * Distribute the current OBC Time over the Spacecraft CANBUS.
+			  * Transmit the Time Synchronisation CAN Datagram over the Spacecraft CANBUS
+			  */
+
+			AOCS_Process_Shell.CANA_send_datagram(AOCS_Process_Shell.cans_datagram);
+
+			//reset the counter 
+			No_all_PPS_received = 0;
+		}
 		return 0;
 	}
 
@@ -464,8 +473,7 @@ class AOCS_State_Machine {
 	 * @return 
 	 */
 	public AOCS_RTP.AOCS_Process_Shell.GDEF_STATUS CheckValidModetransition(AOCS_MODES newMode) {
-		return AOCS_modeTransitionTable[modeIndexMap.get(AOCS_currentMode)][modeIndexMap.get(newMode)]
-				? GDEF_STATUS.GDEF_TRUE
+		return AOCS_modeTransitionTable[AOCS_currentMode.ordinal()][newMode.ordinal()] ? GDEF_STATUS.GDEF_TRUE
 				: GDEF_STATUS.GDEF_FALSE;
 	}
 
@@ -495,7 +503,7 @@ class AOCS_State_Machine {
 		}
 
 		/* update the sample time */
-		aocs_Configuration.ACON_SetRate(AOCS_State_Machine.modeIndexMap.get(AOCS_currentMode));
+		aocs_Configuration.ACON_SetRate(AOCS_currentMode.ordinal());
 
 		/* set flags for algs*/
 
@@ -539,7 +547,7 @@ class AOCS_State_Machine {
 	public AOCS_RTP.AOCS_Process_Shell.GDEF_STATUS AOCS_SetSafeMode(boolean value, AOCS_MODES mode) {
 		// if we set from OPS mode to safe mode then check that the current mode has a safe mode version
 		if (value == true) {
-			if (NUM_SAFE_MODES[AOCS_State_Machine.modeIndexMap.get(mode)] == false)
+			if (NUM_SAFE_MODES[mode.ordinal()] == false)
 				return GDEF_STATUS.GDEF_FAILURE;
 
 		}
@@ -583,7 +591,7 @@ class AOCS_State_Machine {
 		 */
 		if (AOCS_DEFAULT_CYCLE_TIME <= No_of_PPS_sent) {
 			// set the new event
-			config.aocs_shell_fsm_event = AOCS_State_Machine.AOCS_shell_fsm_event.ALL_PPS_RECEIVED;
+			config.aocs_shell_fsm_event = AOCS_shell_fsm_event.ALL_PPS_RECEIVED;
 
 			// set the time
 			config.aocs_shell_event_action_time = System.currentTimeMillis();

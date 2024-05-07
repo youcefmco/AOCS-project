@@ -138,6 +138,28 @@ public class AOCS_Process_Shell {
 	/**
 	 * 
 	 */
+	public class CANS_datagram {
+		/**
+		 * CANADDR_ADCS_PROCESS
+		 */
+		public int u1Src;
+		/**
+		 * CANADDR_BROADCAST
+		 */
+		public int u1Dest;
+		/**
+		 * sizeof(CANS_datagram.a1Buffer)
+		 */
+		public int u1Length;
+		/**
+		 * Datagram type ex: CANI_Time_Set_Command
+		 */
+		public int u1Type;
+	};
+
+	/**
+	 * 
+	 */
 	public static AOCS_State_Machine aocs_State_Machine;
 	/**
 	 * 
@@ -151,6 +173,10 @@ public class AOCS_Process_Shell {
 	 * 
 	 */
 	public static TcReqParams tcreqparams;
+	/**
+	 * 
+	 */
+	public static CANS_datagram cans_datagram;
 
 	/**
 	 * Routine to generate the telemetry information that will be transmitted on the downlink.
@@ -344,5 +370,12 @@ public class AOCS_Process_Shell {
 	 * @param TcReqParams TC parameters data
 	 */
 	public static void CANA_send_tc(TcReqParams TcReqParams) {
+	}
+
+	/**
+	 * 
+	 * @param CANS_datagram input data for daragram
+	 */
+	public static void CANA_send_datagram(CANS_datagram CANS_datagram) {
 	}
 }
