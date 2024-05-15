@@ -263,7 +263,7 @@ class AOCS_State_Machine {
 	 */
 	public static int No_all_PPS_received;
 	/**
-	 * When we are here for the "SEND_SYNC_TIME"th, ie 15*4 = 60sec
+	 * When we are here for the "SEND_SYNC_TIME"th is 15*4 = 60sec
 	 */
 	public static int SEND_SYNC_TIME = 15;
 
@@ -433,6 +433,11 @@ class AOCS_State_Machine {
 		 * When we are here for the "SEND_SYNC_TIME"th, ie 15*4 = 60sec
 		 * send sync message to Node 0.
 		 */
+		/* If we haven't received an ACK for all commands, set the ARO counter */
+		if (HW_Manager.HMGR_CheckNoAckErrors() != true) {
+			ARO_Handler.ARO_SetDecFlag();
+		}
+
 		No_all_PPS_received++;
 		if (No_all_PPS_received >= SEND_SYNC_TIME) {
 			/*
@@ -445,6 +450,9 @@ class AOCS_State_Machine {
 			//reset the counter 
 			No_all_PPS_received = 0;
 		}
+
+		/* prepare data for algorithms */
+		HW_Manager.HMGR_PrepareData();
 		return 0;
 	}
 

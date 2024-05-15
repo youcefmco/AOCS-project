@@ -253,4 +253,19 @@ public class HW_Manager {
 		/* actuate microsat wheels */
 		ActuateMWheels(algs_tcmd.wheelID, algs_tcmd.wheelValue, algs_tcmd.whlEnableFlag);
 	}
+
+	/**
+	 * determines if there are still acks pending from actuate cmds
+	 * @return 
+	 */
+	public static boolean HMGR_CheckNoAckErrors() {
+		return true;
+	}
+
+	/**
+	 * Prepares data for algorithms
+	  * TODO imlement this method
+	 */
+	public static void HMGR_PrepareData() {
+	}
 }

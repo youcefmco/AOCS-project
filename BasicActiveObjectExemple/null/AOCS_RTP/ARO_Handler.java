@@ -80,11 +80,16 @@ public class ARO_Handler {
 	 * ARO hold off time
 	 */
 	public long ARO_HoldOffTime;
+	/**
+	 * A Flag to monitor ARO decrement
+	 */
+	public static boolean ARO_DecFlag;
 
 	/**
 	 * Sets a flag to indicate ARO is to decrement
 	 */
-	public void ARO_SetDecFlag() {
+	public static void ARO_SetDecFlag() {
+		ARO_DecFlag = false;
 	}
 
 	/**
@@ -134,7 +139,7 @@ public class ARO_Handler {
 		tNow = System.currentTimeMillis();
 
 		/* set new ARO hold off time */
-		ARO_HoldOffTime = tNow + AROH_holdOffPeriod[AOCS_State_Machine.modeIndexMap.get(newMode)];
+		ARO_HoldOffTime = tNow + AROH_holdOffPeriod[newMode.ordinal()];
 	}
 
 	/**
