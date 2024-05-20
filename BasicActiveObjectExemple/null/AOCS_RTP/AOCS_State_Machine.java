@@ -4,6 +4,8 @@
 
 package AOCS_RTP;
 
+import java.util.concurrent.ScheduledExecutorService;
+
 // Manual imports
 import AOCS_RTP.AOCS_Process_Shell.GDEF_STATUS;
 import java.util.HashMap;
@@ -136,19 +138,27 @@ class AOCS_State_Machine {
 		/**
 		 * the AOCS PPS Timer
 		 */
-		public int aocs_shell_pps_timer_id;
-		/**
-		 * AOCS Actuation Timer
-		 */
-		public int aocs_shell_actuation_timer_id;
-		/**
-		 * AOCS Shell Actuation Timer
-		 */
-		public long aocs_shell_actuation_timer;
+		public ScheduledExecutorService aocs_shell_pps_timer_id;
 		/**
 		 * AOCS Shell PPS Timer
 		 */
-		public long aocs_shell_pps_timer;
+		public long aocs_shell_pps_timer = 1000;
+		/**
+		 * AOCS Actuation Timer
+		 */
+		public ScheduledExecutorService aocs_shell_actuation_timer_id;
+		/**
+		 * AOCS Shell Actuation Timer
+		 */
+		public long aocs_shell_actuation_timer = 1000;
+		/**
+		 * AOCS Shell AIM Check Timer ID
+		 */
+		public ScheduledExecutorService aocs_shell_aim_check_timer_id;
+		/**
+		 * AOCS Shell AIM Check Timer
+		 */
+		public long aocs_shell_aim_check_timer = 1000;
 	};
 
 	/**
@@ -239,11 +249,11 @@ class AOCS_State_Machine {
 	 */
 	public static AOCS_Shell_EventHandler[][] AOCS_shell_event_table = new AOCS_Shell_EventHandler[][] {
 			/*
-			 * RUNAOCS -----------------------------------------------------------------
-			 * CHECKTLM ----------------------------------------      					|
-			 * IDLE-----------------     		  				|      					|
-			 *                      |        	  				|						|
-			 *                      |     		  				|     					|
+			 * RUNAOCS ---------------------------------
+			 * CHECKTLM --------------------------      |
+			 * IDLE-----------------     		  |     |
+			 *                      |        	  |		|
+			 *                      |     		  |     |
 			 */
 			{ AOCS_State_Machine::pps_received, null, null }, /* PPS_RECEIVED           */
 			{ AOCS_State_Machine::all_pps_received, null, null }, /* ALL_PPS_RECEIVED       */
@@ -266,6 +276,14 @@ class AOCS_State_Machine {
 	 * When we are here for the "SEND_SYNC_TIME"th is 15*4 = 60sec
 	 */
 	public static int SEND_SYNC_TIME = 15;
+	/**
+	 * Counter of pps received by AIM
+	 */
+	public static int AIM_PPS;
+	/**
+	 * Constant on the number off pps received by AIM
+	 */
+	public static int wake_up_aim = 100;
 
 	/**
 	 * check if the mode transition is valid then start the updateMode transitions routine
@@ -439,20 +457,66 @@ class AOCS_State_Machine {
 		}
 
 		No_all_PPS_received++;
+		AIM_PPS++;
 		if (No_all_PPS_received >= SEND_SYNC_TIME) {
+
+			/*
+			 * Build and send the sync Telecommand(5,1) to AIM1
+			 */
+			/*
+			CANS_datagram.u1Src    = CANADDR_ADCS_PROCESS;
+			CANS_datagram.u1Dest   = CANADDR_BROADCAST;
+			CANS_datagram.u1Length = sizeof(CANS_datagram.a1Buffer);
+			CANS_datagram.u1Type   = CANI_Time_Set_Command;
+			*/
 			/*
 			  * Distribute the current OBC Time over the Spacecraft CANBUS.
 			  * Transmit the Time Synchronisation CAN Datagram over the Spacecraft CANBUS
 			  */
-
-			AOCS_Process_Shell.CANA_send_datagram(AOCS_Process_Shell.cans_datagram);
+			AOCS_Process_Shell.aocs_TTC.CANA_send_datagram(AOCS_Process_Shell.aocs_TTC.cans_datagram);
 
 			//reset the counter 
 			No_all_PPS_received = 0;
+
+		}
+		if (AIM_PPS >= wake_up_aim) {
+			/*        
+			  stTcReqParams.psRegInfo      = (tsCANS_RegRtn*)getCANReg();
+			  stTcReqParams.eSendQPriority = eCANS_LO_PRI_Q;
+			  stTcReqParams.eWait          = eCANS_NO_WAIT;
+			  stTcReqParams.u1Src          = CANADDR_ADCS_PROCESS;
+			  stTcReqParams.u4RetryCount   = DEFAULT_AOCS_TC_RETRY_COUNT;
+			  stTcReqParams.u4RtnQIdx      = DEFAULT_DISPATCHER_Q;
+			  stTcReqParams.u4Timeout      = DEFAULT_TELECOMMAND_REQUEST_TIMEOUT;
+			  */
+			/*
+			 * Build and send the sync Telecommand(5,1) to AIM1
+			 */
+			AOCS_Process_Shell.aocs_TTC.CANA_send_datagram(AOCS_Process_Shell.aocs_TTC.cans_datagram);
+			//reset counter
+			AIM_PPS = 0;
 		}
 
 		/* prepare data for algorithms */
 		HW_Manager.HMGR_PrepareData();
+
+		/* RUN THE AOCS ALGORITHMS */
+		algs_interface.AINT_AlgManager();
+
+		/*
+		* Initialise data gathering for new cycle
+		*/
+		AOCS_Process_Shell.InitAocs();
+
+		/*
+		* Start the 200ms delay before we fire the actuator, as requested by AOCS.
+		*/
+		// set the new event
+		config.aocs_shell_fsm_event = AOCS_shell_fsm_event.ACTUATE;
+
+		// process end execute the new event
+		AOCS_Process_Shell.AOCS_Shell_deliver_event(config);
+
 		return 0;
 	}
 
@@ -591,7 +655,7 @@ class AOCS_State_Machine {
 		 * DEFAULT_TELECOMMAND_REQUEST_TIMEOUT;
 		 */
 		//send the TC
-		AOCS_Process_Shell.CANA_send_tc(AOCS_Process_Shell.tcreqparams);
+		AOCS_Process_Shell.aocs_TTC.CANA_send_tc(AOCS_Process_Shell.aocs_TTC.tcreqparams);
 
 		No_of_PPS_sent++;
 		/*

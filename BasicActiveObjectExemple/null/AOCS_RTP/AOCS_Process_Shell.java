@@ -4,6 +4,13 @@
 
 package AOCS_RTP;
 
+// Manual imports
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import AOCS_RTP.AOCS_State_Machine.AOCS_MODES;
+// End of manual imports
+
 /************************************************************/
 /**
  * Entry point for the OBC750 AOCS Process
@@ -104,62 +111,6 @@ public class AOCS_Process_Shell {
 	/**
 	 * 
 	 */
-	public class TcReqParams {
-		/**
-		 * 
-		 */
-		public byte psRegInfo;
-		/**
-		 * 
-		 */
-		public int eSendQPriority;
-		/**
-		 * 
-		 */
-		public int eWait;
-		/**
-		 * source CAN ADDR
-		 */
-		public int u1Src;
-		/**
-		 * DEFAULT_TC_RETRY_COUNT
-		 */
-		public int u4RetryCount;
-		/**
-		 * DEFAULT_DISPATCHER_Q
-		 */
-		public int u4RtnQIdx;
-		/**
-		 * DEFAULT_TELECOMMAND_REQUEST_TIMEOUT
-		 */
-		public int u4Timeout;
-	};
-
-	/**
-	 * 
-	 */
-	public class CANS_datagram {
-		/**
-		 * CANADDR_ADCS_PROCESS
-		 */
-		public int u1Src;
-		/**
-		 * CANADDR_BROADCAST
-		 */
-		public int u1Dest;
-		/**
-		 * sizeof(CANS_datagram.a1Buffer)
-		 */
-		public int u1Length;
-		/**
-		 * Datagram type ex: CANI_Time_Set_Command
-		 */
-		public int u1Type;
-	};
-
-	/**
-	 * 
-	 */
 	public static AOCS_State_Machine aocs_State_Machine;
 	/**
 	 * 
@@ -168,15 +119,164 @@ public class AOCS_Process_Shell {
 	/**
 	 * 
 	 */
-	public static AOCS_message aocs_message;
+	public static AOCS_message _aocs_message;
+	/**
+	 *  Routine to handle the Message Interface implemented as a POSIX Thread
+	 */
+	public static Thread aocs_message_dispatcher_thread = new Thread() {
+		public void run() {
+			/*
+			 * Initialise the AOCS Shell Protection Mutex. Thread is just an token, it could
+			 * be any object
+			*/
+			_config.aocs_shell_protection_mutex = new Thread();
+			/*
+			 * We have 3 timers :
+			 * PPSTimer
+			 * ActuationTimer
+			 * AIMCheckTimer (opt)
+			 * */
+
+			/*
+			 * Create the AOCS PPS Timer.
+			 */
+			_config.aocs_shell_pps_timer_id = Executors.newSingleThreadScheduledExecutor(); // new Timer();
+			/*
+			* Connect the AOCS PPS Timer.
+			* 			
+			 * Schedule the task to run periodically every 'aocs_shell_pps_timer' milliseconds
+			 * set the task and the timer value
+			 */
+			_config.aocs_shell_pps_timer_id.scheduleAtFixedRate(() -> aocs_pps_timer_signal_handler(_config), 0,
+					_config.aocs_shell_pps_timer, TimeUnit.MILLISECONDS);
+
+			/*
+			 * Create the AOCS Actuation Timer.
+			 */
+			_config.aocs_shell_actuation_timer_id = Executors.newSingleThreadScheduledExecutor(); // new Timer();
+			/*
+			* Connect the AOCS Actuation Timer.
+			* 			
+			 * Schedule the task to run periodically every 'aocs_shell_actuation_timer' milliseconds
+			 * set the task and the timer value
+			 */
+			/*
+			 * wait 500 millisecond before starting the second timers
+			 * according to the Figure 3 2: AOCS periodic activities (FSM) in the flight software specification
+			 * */
+			_config.aocs_shell_actuation_timer_id.scheduleAtFixedRate(
+					() -> aocs_actuation_timer_signal_handler(_config), 500, _config.aocs_shell_actuation_timer,
+					TimeUnit.MILLISECONDS);
+
+			/*
+			 * Create the AIM Check Timer.
+			 */
+			_config.aocs_shell_aim_check_timer_id = Executors.newSingleThreadScheduledExecutor(); // new Timer();
+			/*
+			* Connect the AOCS Actuation Timer.
+			* 			
+			 * Schedule the task to run periodically every 'aocs_shell_actuation_timer' milliseconds
+			 * set the task and the timer value
+			 */
+			_config.aocs_shell_aim_check_timer_id.scheduleAtFixedRate(
+					() -> aocs_aim_check_timer_signal_handler(_config), 500, _config.aocs_shell_aim_check_timer,
+					TimeUnit.MILLISECONDS);
+
+			/*
+			 * Repeatedly read messages received on the AOCS Dispatcher Message Queue
+			 */
+			while (true) {
+				while (_aocs_message == null) { // Check if message is available
+					try {
+						synchronized (this) { // Synchronize on the current object
+							wait(); // Release lock and wait to be notified
+						}
+					} catch (InterruptedException e) {
+						// Handle interruption (optional)
+					}
+				}
+				/*
+				 * Process the received message
+				 */
+				switch (_aocs_message.aocs_message_type) {
+				/* The above 3 timers will send ticks message as followings :
+				 * PPSTimer = ePPSTimerMessage (event = PPS_RECEIVED)
+				 * ActuationTimer = eActuationTimerMessage (event = ACTUATE)
+				 * AIMCheckTimer = eAimCheckTimerMessage
+				 * the 'eAOCSTimerMessage' is set in 'aocs_shell_deliver_event' which is triggered between 
+				 * Idle events: 'pps_received -> all_pps_received '(event = ALL_PPS_RECEIVED)  
+				 * and 'all_pps_received -> run_AOCS' (event = AOCS_MESSAGE)
+				 * to get back HERE and execute the Events into the AOCS Finite State Machine Table
+				 */
+				case eAOCSTimerMessage: {
+					//get the aocs shell configuration struct from the message
+					_config = _aocs_message.aocs_message_data.message_pointer;
+
+					//Execute the Action related to Events (using the table) into the AOCS Finite State Machine
+					AOCS_State_Machine.AOCS_Shell_process_event(_config).handleEvent(_config);
+
+					break;
+				}
+
+				//PPS_RECEIVED event
+				case ePPSTimerMessage: {
+					/*
+					 * Obtain the AOCS Shell Protection Mutex.
+					 */
+					synchronized (_config.aocs_shell_protection_mutex) {
+						// set the event to know what to do next
+						_config.aocs_shell_fsm_event = AOCS_State_Machine.AOCS_shell_fsm_event.PPS_RECEIVED;
+						// get current time
+						_config.aocs_shell_event_action_time = System.currentTimeMillis();
+						// deliver the event to execute it
+						AOCS_Shell_deliver_event(_config);
+					}
+					/*
+					 * Release the AOCS Shell Protection Mutex.
+					 */
+					break;
+				}
+				case eActuationTimerMessage:
+					/*
+					 * Obtain the AOCS Shell Protection Mutex.
+					 */
+					synchronized (_config.aocs_shell_protection_mutex) {
+						// set the event to know what to do next
+						_config.aocs_shell_fsm_event = AOCS_State_Machine.AOCS_shell_fsm_event.ACTUATE;
+						// get current time
+						_config.aocs_shell_event_action_time = System.currentTimeMillis();
+						// deliver the event to execute it
+						AOCS_Shell_deliver_event(_config);
+					}
+					/*
+					 * Release the AOCS Shell Protection Mutex.
+					 */
+					break;
+
+				case eAimCheckTimerMessage:
+					/*
+					* Send sync cmds only if we are not SBM of SAFE
+					*/
+					break;
+				default:
+					System.out.println("Unknown Message received\n");
+					break;
+
+				}
+				_aocs_message = null; // Reset message for next iteration
+			}
+		}
+	};
 	/**
 	 * 
 	 */
-	public static TcReqParams tcreqparams;
+	public static AOCS_RTP.AOCS_State_Machine.AOCS_shell_configuration _config;
 	/**
-	 * 
+	 * Routine to register the AOCS Process with the CAN Server.
+	  * Registers Telecommand and Telemetry service queues and a generic receive message queue.
+	  * Block waits for Received CAN messages.
 	 */
-	public static CANS_datagram cans_datagram;
+	public Thread aocs_can_thread;
 
 	/**
 	 * Routine to generate the telemetry information that will be transmitted on the downlink.
@@ -192,111 +292,70 @@ public class AOCS_Process_Shell {
 
 	/**
 	 * Routine to handle the PPS Timer Signal
+	 * @param config 
 	 */
-	public void aocs_pps_timer_signal_handler() {
+	public static void aocs_pps_timer_signal_handler(AOCS_RTP.AOCS_State_Machine.AOCS_shell_configuration config) {
+		/*set the message type to ePPSTimerMessage to process in the message loop of the aocs_message_dispatcher_thread
+		*the other types are set the three timers (actuation, deliver_event, aim )
+		*/
+		_aocs_message.aocs_message_type = AOCS_message_type.ePPSTimerMessage;
+
+		//get the aocs shell configuration
+		_aocs_message.aocs_message_data.message_pointer = config;
+
+		/*
+		 * Send the message to the AOCS Process Dispatcher.
+		 */
+		//mq_send(config); this hat was done
+
+		//wake up the message waiting thread
+		aocs_message_dispatcher_thread.notify();
 	}
 
 	/**
 	 * Routine to handle the Actuation Timer Signal
+	 * @param config 
 	 */
-	public void aocs_actuation_timer_signal_handler() {
+	public static void aocs_actuation_timer_signal_handler(
+			AOCS_RTP.AOCS_State_Machine.AOCS_shell_configuration config) {
+		/*set the message type to eActuationTimerMessage to process in the message loop of the aocs_message_dispatcher_thread
+		*the other types are set the three timers (pps, deliver_event, aim )
+		*/
+		_aocs_message.aocs_message_type = AOCS_message_type.eActuationTimerMessage;
+
+		//get the aocs shell configuration
+		_aocs_message.aocs_message_data.message_pointer = config;
+
+		/*
+		 * Send the message to the AOCS Process Dispatcher.
+		 */
+		//mq_send(config); this hat was done
+
+		//wake up the message waiting thread
+		aocs_message_dispatcher_thread.notify();
 	}
 
 	/**
 	 * Routine to handle the AIM Check Timer Signal
-	 */
-	public void aocs_aim_check_timer_signal_handler() {
-	}
-
-	/**
-	 * Routine to handle the Message Interface implemented as a POSIX Thread.
 	 * @param config 
 	 */
-	public void aocs_message_dispatcher_thread(AOCS_RTP.AOCS_State_Machine.AOCS_shell_configuration config) {
+	public static void aocs_aim_check_timer_signal_handler(
+			AOCS_RTP.AOCS_State_Machine.AOCS_shell_configuration config) {
+		/*set the message type to eAimCheckTimerMessage to process in the message loop of the aocs_message_dispatcher_thread
+		*the other types are set the three timers (pps, deliver_event, actuation)
+		*/
+		_aocs_message.aocs_message_type = AOCS_message_type.eAimCheckTimerMessage;
+
+		//get the aocs shell configuration
+		_aocs_message.aocs_message_data.message_pointer = config;
+
 		/*
-					 * Initialise the AOCS Shell Protection Mutex. Thread is just an token, it could
-					 * be any object
-					 */
-		config.aocs_shell_protection_mutex = new Thread();
-		/*
-		 * Create the AOCS PPS Timer.
+		 * Send the message to the AOCS Process Dispatcher.
 		 */
-		config.aocs_shell_pps_timer_id = 0; // new Timer();
-		/*
-		 * Connect the AOCS Actuation Timer.
-		 */
-		config.aocs_shell_actuation_timer_id = 0; // new Timer();
-		/*
-		 * Repeatedly read messages received on the AOCS Dispatcher Message Queue
-		 */
-		for (;;) {
-			/*
-			 * Process the received message
-			 */
-			switch (aocs_message.aocs_message_type) {
-			/*
-			 * When a message is received from outside, it will never enter in this case at first
-			 * it first get processed in the following cases
-			 * then the AOCS_Shell_process_event to right EVENT
-			 * and the aocs_message_type to 'eAOCSTimerMessage'
-			 * to get back HERE and execute the Events into the AOCS Finite State Machine Table
-			 */
-			case eAOCSTimerMessage: {
-				//get the aocs shell configuration struct from the message
-				config = aocs_message.aocs_message_data.message_pointer;
+		//mq_send(config); this hat was done
 
-				//Execute the Action related to Events (using the table) into the AOCS Finite State Machine
-				AOCS_State_Machine.AOCS_Shell_process_event(config).handleEvent(config);
-
-				break;
-			}
-
-			//PPS_RECEIVED event
-			case ePPSTimerMessage: {
-				/*
-				 * Obtain the AOCS Shell Protection Mutex.
-				 */
-				synchronized (config.aocs_shell_protection_mutex) {
-					// set the event to know what to do next
-					config.aocs_shell_fsm_event = AOCS_State_Machine.AOCS_shell_fsm_event.PPS_RECEIVED;
-					// get current time
-					config.aocs_shell_event_action_time = System.currentTimeMillis();
-					// deliver the event to execute it
-					AOCS_Shell_deliver_event(config);
-				}
-				/*
-				 * Release the AOCS Shell Protection Mutex.
-				 */
-				break;
-			}
-			case eActuationTimerMessage:
-				/*
-				 * Obtain the AOCS Shell Protection Mutex.
-				 */
-				synchronized (config.aocs_shell_protection_mutex) {
-					// set the event to know what to do next
-					config.aocs_shell_fsm_event = AOCS_State_Machine.AOCS_shell_fsm_event.ACTUATE;
-					// get current time
-					config.aocs_shell_event_action_time = System.currentTimeMillis();
-					// deliver the event to execute it
-					AOCS_Shell_deliver_event(config);
-				}
-				/*
-				 * Release the AOCS Shell Protection Mutex.
-				 */
-				break;
-
-			case eAimCheckTimerMessage:
-				/*
-				* Send sync cmds only if we are not SBM of SAFE
-				*/
-				break;
-			default:
-				System.out.println("Unknown Message received\n");
-				break;
-
-			}
-		}
+		//wake up the message waiting thread
+		aocs_message_dispatcher_thread.notify();
 	}
 
 	/**
@@ -305,6 +364,24 @@ public class AOCS_Process_Shell {
 	 * @param argv 
 	 */
 	public void main(int arg, String argv) {
+		/*
+		*  Create the AOCS CAN Thread.
+		*/
+		aocs_can_thread.start();
+		/*
+		* Create the AOCS Message Dispatcher Thread.
+		*/
+		aocs_message_dispatcher_thread.start();
+
+		/* Initialise the task */
+		TaskInit();
+
+		/*
+		 * Register with the Downlink Telemetry Handler
+		 */
+		AOCS_downlink_telemetry_handler();
+		//TODO : add the drive file functionality
+		//TODO : Register with the SKED library
 	}
 
 	/**
@@ -317,28 +394,24 @@ public class AOCS_Process_Shell {
 	 * AOCS Task initialisation function
 	 */
 	public void TaskInit() {
-	}
+		System.out.println("AOCS Process Started\n");
 
-	/**
-	 * Routine to register the AOCS Process with the CAN Server.
-	  * Registers Telecommand and Telemetry service queues and a generic receive message queue.
-	  * Block waits for Received CAN messages.
-	 */
-	public void aocs_can_thread() {
+		/* ensure mode is in standby */
+		aocs_State_Machine.AOCS_ForceMode(AOCS_MODES.SBM);
+
+		/* initialise telemetry */
+		aocs_TTC.ATTC_Init();
+
+		/* initialise AOCS variables etc. */
+		aocs_State_Machine.algs_interface.AINT_Init();
 	}
 
 	/**
 	 * Initialises a new AOCS cycle
-	 */
-	public void InitAocs() {
-	}
-
-	/**
-	 * Send can message
+	  * Initialise data gathering for new cycle
 	  * 
-	 * @param config Pointer to the AOCS Configuration Structure
 	 */
-	public static void mq_send(AOCS_RTP.AOCS_State_Machine.AOCS_shell_configuration config) {
+	public static void InitAocs() {
 	}
 
 	/**
@@ -352,30 +425,23 @@ public class AOCS_Process_Shell {
 		synchronized (config.aocs_shell_protection_mutex) {
 
 			// set the message type to eAOCSTimerMessage to process in the following message in the first case
-			aocs_message.aocs_message_type = AOCS_message_type.eAOCSTimerMessage;
+			//the other types are set the three timers (actuation, pps, aim )
+			_aocs_message.aocs_message_type = AOCS_message_type.eAOCSTimerMessage;
 
 			//get the aocs shell configuration
-			aocs_message.aocs_message_data.message_pointer = config;
+			_aocs_message.aocs_message_data.message_pointer = config;
 
-			//send the CAN message
-			mq_send(config);
+			/*
+			 * Send the message to the AOCS Process Dispatcher.
+			 */
+			//mq_send(config); this hat was done
+
+			//wake up the message waiting thread
+			aocs_message_dispatcher_thread.notify();
+
 		}
 		/*
 		 * Release the AOCS Shell Protection Mutex.
 		 */
-	}
-
-	/**
-	 * Send a CAN TC
-	 * @param TcReqParams TC parameters data
-	 */
-	public static void CANA_send_tc(TcReqParams TcReqParams) {
-	}
-
-	/**
-	 * 
-	 * @param CANS_datagram input data for daragram
-	 */
-	public static void CANA_send_datagram(CANS_datagram CANS_datagram) {
 	}
 }

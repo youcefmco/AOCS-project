@@ -9,4 +9,88 @@ package AOCS_RTP;
  * 
  */
 public class AOCS_TTC extends CAN_Node {
+	/**
+	 * 
+	 */
+	public class CANS_datagram {
+		/**
+		 * CANADDR_ADCS_PROCESS
+		 */
+		public int u1Src;
+		/**
+		 * CANADDR_BROADCAST
+		 */
+		public int u1Dest;
+		/**
+		 * sizeof(CANS_datagram.a1Buffer)
+		 */
+		public int u1Length;
+		/**
+		 * Datagram type ex: CANI_Time_Set_Command
+		 */
+		public int u1Type;
+	};
+
+	/**
+	 * 
+	 */
+	public class TcReqParams {
+		/**
+		 * 
+		 */
+		public byte psRegInfo;
+		/**
+		 * 
+		 */
+		public int eSendQPriority;
+		/**
+		 * 
+		 */
+		public int eWait;
+		/**
+		 * source CAN ADDR
+		 */
+		public int u1Src;
+		/**
+		 * DEFAULT_TC_RETRY_COUNT
+		 */
+		public int u4RetryCount;
+		/**
+		 * DEFAULT_DISPATCHER_Q
+		 */
+		public int u4RtnQIdx;
+		/**
+		 * DEFAULT_TELECOMMAND_REQUEST_TIMEOUT
+		 */
+		public int u4Timeout;
+	};
+
+	/**
+	 * 
+	 */
+	public CANS_datagram cans_datagram;
+	/**
+	 * 
+	 */
+	public TcReqParams tcreqparams;
+
+	/**
+	 * Send a CAN TC
+	 * @param TcReqParams TC parameters data
+	 */
+	public void CANA_send_tc(TcReqParams TcReqParams) {
+	}
+
+	/**
+	 * 
+	 * @param CANS_datagram input data for daragram
+	 */
+	public void CANA_send_datagram(CANS_datagram CANS_datagram) {
+	}
+
+	/**
+	 *  initialise telemetry 
+	 */
+	public void ATTC_Init() {
+	}
 }

@@ -264,7 +264,11 @@ public class HW_Manager {
 
 	/**
 	 * Prepares data for algorithms
-	  * TODO imlement this method
+	  * store mtm data
+	  * set the sunsensor data 
+	  * update the microsat wheel data
+	  * update the microsat wheel data 
+	  * TODO implement this method
 	 */
 	public static void HMGR_PrepareData() {
 	}

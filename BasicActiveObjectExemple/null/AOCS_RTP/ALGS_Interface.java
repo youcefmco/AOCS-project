@@ -82,4 +82,43 @@ public class ALGS_Interface {
 	 * 
 	 */
 	public ALGS_TCMD algs_tcmd;
+
+	/**
+	 * RUN THE AOCS ALGORITHMS 
+	 */
+	public void AINT_AlgManager() {
+		int callVal = 0;
+
+		/* run the algorithms AJ - change prototype */
+		callVal = AOCS_Go();
+
+		/* update the alg telemetry */
+		AOCS_Telemetry();
+
+		/* check if algorithms ran successfully */
+		if (callVal != 0) {
+			System.out.println("Algorithm Error");
+		}
+	}
+
+	/**
+	 * update the alg telemetry 
+	 */
+	public void AOCS_Telemetry() {
+	}
+
+	/**
+	 * run the algorithms
+	 * @return 
+	 */
+	public int AOCS_Go() {
+		//TODO implement the algs here
+		return 0;
+	}
+
+	/**
+	 * initialise AOCS variables etc.
+	 */
+	public void AINT_Init() {
+	}
 }
